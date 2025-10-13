@@ -1,6 +1,6 @@
 import os  
 from cryptography.fernet import Fernet  
-import time
+import time  
 
 def wybierz_folder():
     # Wybranie folderu do przeprowadzenia symulacji
@@ -69,3 +69,26 @@ def szyforwanie(folder_path):
     czas = time.time() - start  
     print("Symulacja wykonałą się w: " + czas + "s") 
     return key 
+
+def odszyforwanie(folder_path, key):
+    # Odszyfrowuje pliki
+    # Podobnie jak szyforwanie tylko w drugą strone
+
+    start = time.time() 
+    files = wczytaj_pliki(folder_path)  
+    fernet = Fernet(key) 
+    
+    for file in files:
+        file_path = os.path.join(folder_path, file)
+        try:
+            with open(file_path, "rb") as pliczki: 
+                contents = pliczki.read()  # Wczytaj zaszyfrowaną zawartość
+            contents_decrypted = fernet.decrypt(contents)  # Odszyfruj zawartość
+            with open(file_path, "wb") as pliczki:  
+                pliczki.write(contents_decrypted) # Zastępuje zaszyfrowaną zawartość odszyforwanymi
+            print(f"Odszyfrowano: {file}")
+        except Exception as e:
+            print("Błąd podczas odszyfrowywania"+ file + " błąd "+ e)  # Obsłuż błędy, np. uszkodzony klucz
+    
+    czas = time.time() - start  # Oblicz czas wykonania
+    print("Gotowe. Odszyfrowano pliki w: " + czas + "sekund") 
