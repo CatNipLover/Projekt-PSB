@@ -9,7 +9,7 @@ def wybierz_folder():
 
     folder_path = input("Podaj ścieżkę do folderu: ")
     if os.path.isdir(folder_path):
-        print("Wybrano folder: " + folder_path)
+        print("Wybrano folder: " + str(folder_path))
         return folder_path
     else:
         print("Zły folder")
@@ -44,12 +44,12 @@ def szyforwanie(folder_path):
         with open(key_path, "wb") as klucz:
             klucz.write(key)
         print("Utworzono klucz w pliku: " + key_path)
-        print("Klucz szyfrujący: " + key.decode('utf-8'))
+        print("Klucz szyfrujący: " + str(key.decode('utf-8')))
     else:
         with open(key_path, "rb") as klucz:
             key = klucz.read()
         print("Wczytano klucz z pliku: " + key_path)
-        print("Klucz szyfrujący to: " + key.decode('utf-8'))
+        print("Klucz szyfrujący to: " + str(key.decode('utf-8')))
 
         # Szyfrowanie plików
     start = time.time()
@@ -65,12 +65,12 @@ def szyforwanie(folder_path):
             contents_encrypted = fernet.encrypt(contents)  # Szyfruje zawartośc
             with open(file_path, "wb") as pliczki:
                 pliczki.write(contents_encrypted)  # Zastępuje zawartość pliku zaszyfrowanymi
-            print("Zaszyfrowano plik: " + file)
+            print("Zaszyfrowano plik: " + str(file))
         except Exception as e:
-            print("Błąd podczas szyfrowania pliku: " + file + " błąd: " + e)
+            print("Błąd podczas szyfrowania pliku: " + str(file) + " błąd: " + e)
 
     czas = time.time() - start
-    print("Symulacja wykonałą się w: " + czas + "s")
+    print("Symulacja wykonałą się w: " + str(czas) + "s")
     return key
 
 
@@ -92,21 +92,23 @@ def odszyforwanie(folder_path, key):
                 pliczki.write(contents_decrypted)  # Zastępuje zaszyfrowaną zawartość odszyforwanymi
             print(f"Odszyfrowano: {file}")
         except Exception as e:
-            print("Błąd podczas odszyfrowywania" + file + " błąd " + e)  # Obsłuż błędy, np. uszkodzony klucz
+            print("Błąd podczas odszyfrowywania" + str(file) + " błąd " + str(e))  # Obsłuż błędy, np. uszkodzony klucz
 
     czas = time.time() - start  # Oblicz czas wykonania
-    print("Gotowe. Odszyfrowano pliki w: " + czas + "sekund")
+    print("Gotowe. Odszyfrowano pliki w: " + str(czas) + "sekund")
 
 
 def main():
     folder = wybierz_folder()
     if folder is None:
         return
-
+    
+    print(Fore.RED + "!!Uwaga program na prawdę szyfruje pliki!!" + Fore.RESET)
+    print(Fore.RED + "!!Uruchamiasz go na swoją odpowiedzialność!!" + Fore.RESET)
+    
     key = None
     while True:
-        print(Fore.RED + "!!Uwaga program na prawdę szyfruje pliki!!" + Fore.RESET)
-        print(Fore.RED + "!!Uruchamiasz go na swoją odpowiedzialność!!" + Fore.RESET)
+        
         print("\nWybierz operację:")
         print("1. Szyfruj pliki")
         print("2. Odszyfruj pliki")
@@ -125,7 +127,7 @@ def main():
                     continue
                 with open(key_file, "rb") as klucz:
                     key = klucz.read()
-                print("Klucz szyfrujący: " + key.decode('utf-8'))
+                print("Klucz szyfrujący: " + str(key.decode('utf-8')))
             odszyforwanie(folder, key)
         elif choice == "3":
             print("pa pa")
@@ -133,5 +135,6 @@ def main():
         else:
             print("Spróbuj ponownie")
 
-    main()
-    input("Naciśnij Enter aby wyjść")
+
+main()
+input("Naciśnij Enter aby wyjść")
