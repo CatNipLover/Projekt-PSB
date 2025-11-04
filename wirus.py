@@ -9,7 +9,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Szyfrator Plików v5 (Usprawniony)")
+        self.title("Symulator ataku ransomware")
         self.geometry("700x650")
         self.center_window()
 
