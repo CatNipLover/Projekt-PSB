@@ -6,7 +6,8 @@ from cryptography.fernet import Fernet, InvalidToken
 
 # Importy dla nowych algorytmów
 try:
-    from Crypto.Cipher import AES, ChaCha20
+    # POPRAWKA: Zmieniono import z ChaCha20 na ChaCha20_Poly1305, aby użyć uwierzytelnionego trybu
+    from Crypto.Cipher import AES, ChaCha20_Poly1305 
     from Crypto.Random import get_random_bytes
     from Crypto.Hash import SHA256
     from Crypto.Protocol.KDF import PBKDF2
@@ -15,13 +16,12 @@ except ImportError:
     messagebox.showerror("Błąd",
                          "Brak wymaganej biblioteki. Zainstaluj 'pycryptodome' używając: pip install pycryptodome")
     AES = None
-    ChaCha20 = None
+    ChaCha20_Poly1305 = None 
     get_random_bytes = None
     PBKDF2 = None
     SHA256 = None
 
 # Stałe
-# KEY_SIZE zostało usunięte, będzie dynamiczne
 SALT_SIZE = 16
 NONCE_SIZE = 12  # Dla GCM i ChaCha20
 TAG_SIZE = 16  # Dla GCM i Poly1305
@@ -38,7 +38,7 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("Szyfrator Wielu Algorytmów")
+        self.title("Symulator ataku ransomware")
         self.geometry("700x600")  # Zmniejszono wysokość po usunięciu suwaka
         self.center_window()
 
@@ -238,10 +238,12 @@ class App(ctk.CTk):
         """Szyfrowanie za pomocą ChaCha20-Poly1305.
         Format: CHACHA_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
         """
-        if ChaCha20 is None: raise RuntimeError("Brak biblioteki PyCryptodome")
+        # POPRAWKA: Używamy ChaCha20_Poly1305 zamiast ChaCha20
+        if ChaCha20_Poly1305 is None: raise RuntimeError("Brak biblioteki PyCryptodome lub brak ChaCha20_Poly1305")
 
         nonce = get_random_bytes(NONCE_SIZE)
-        cipher = ChaCha20.new(key=key, nonce=nonce)
+        # POPRAWKA: Użycie ChaCha20_Poly1305, aby mieć metodę encrypt_and_digest
+        cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(data)
 
         return CHACHA_TAG + nonce + tag + ciphertext
@@ -312,6 +314,7 @@ class App(ctk.CTk):
                 elif selected_algo == self.algo_options[1]:
                     encrypted_data = self.encrypt_aes_gcm(data, key)
                 elif selected_algo == self.algo_options[2]:
+                    # Użycie poprawionej funkcji ChaCha20-Poly1305
                     encrypted_data = self.encrypt_chacha20_poly1305(data, key)
                 else:
                     self.log(f"BŁĄD: Nieznany algorytm: {selected_algo}")
@@ -334,15 +337,12 @@ class App(ctk.CTk):
         """Odszyfrowanie za pomocą standardowego Fernet.
         Format: FERNET_TAG (6 bajtów) + Szyfrogram
         """
-        # --- ZMIANA: Usunięto logikę czytania rund ---
-
         # Odszyfrowywane dane zaczynają się PO 6 bajtach tagu
         data_to_decrypt = encrypted_data[TAG_LEN:]
 
         fernet = Fernet(key)
         decrypted_data = fernet.decrypt(data_to_decrypt)
 
-        # Zwracamy 1, aby funkcja wywołująca wiedziała, że to była 1 runda
         return decrypted_data, 1
 
     def decrypt_aes_gcm(self, encrypted_data, key):
@@ -364,14 +364,16 @@ class App(ctk.CTk):
         """Odszyfrowanie za pomocą ChaCha20-Poly1305.
         Format: CHACHA_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
         """
-        if ChaCha20 is None: raise RuntimeError("Brak biblioteki PyCryptodome")
+        # POPRAWKA: Używamy ChaCha20_Poly1305 zamiast ChaCha20
+        if ChaCha20_Poly1305 is None: raise RuntimeError("Brak biblioteki PyCryptodome lub brak ChaCha20_Poly1305")
 
         # Dane zaczynają się po 6-bajtowym tagu
         nonce = encrypted_data[TAG_LEN: TAG_LEN + NONCE_SIZE]
         tag = encrypted_data[TAG_LEN + NONCE_SIZE: TAG_LEN + NONCE_SIZE + TAG_SIZE]
         ciphertext = encrypted_data[TAG_LEN + NONCE_SIZE + TAG_SIZE:]
 
-        cipher = ChaCha20.new(key=key, nonce=nonce)
+        # POPRAWKA: Użycie ChaCha20_Poly1305, aby mieć metodę decrypt_and_verify
+        cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
         data = cipher.decrypt_and_verify(ciphertext, tag)
         return data, 1
 
@@ -397,31 +399,43 @@ class App(ctk.CTk):
             if len(encrypted_data) < TAG_LEN + 1:  # Minimalna dlugosc: 6 bajtów tagu + dane
                 raise ValueError("Plik jest za krótki/uszkodzony.")
 
-            # 2. Identyfikacja algorytmu
-
-            # --- ZMIANA: Wszystkie tagi są na początku pliku ---
+            # 2. Identyfikacja algorytmu i KONWERSJA KLUCZA
             algo_tag_check = encrypted_data[0: TAG_LEN]
 
             algo_tag = None
-            key = None
+            key = None # Klucz jako bajty
 
             if algo_tag_check == FERNET_TAG:
-                # Jest to Fernet
+                # Jest to Fernet. Klucz musi być Base64.
                 algo_tag = 'FERNET'
-                key = key_str.encode('utf-8')
+                # Fernet akceptuje klucz jako bajty Base64
+                try:
+                    key = key_str.encode('utf-8')
+                except Exception as e:
+                    self.log(f"BŁĄD konwersji klucza Fernet (Base64): {e}")
+                    messagebox.showerror("Błąd klucza", "Nieprawidłowy format klucza Base64 dla Fernet.")
+                    return
+
                 decrypted_data, rounds = self.decrypt_fernet(encrypted_data, key)
 
-            elif algo_tag_check == AESGCM_TAG:
-                # Jest to AES
-                algo_tag = 'AESGCM'
-                key = bytes.fromhex(key_str)
-                decrypted_data, rounds = self.decrypt_aes_gcm(encrypted_data, key)
-
-            elif algo_tag_check == CHACHA_TAG:
-                # Jest to ChaCha
-                algo_tag = 'CHACHA'
-                key = bytes.fromhex(key_str)
-                decrypted_data, rounds = self.decrypt_chacha20_poly1305(encrypted_data, key)
+            elif algo_tag_check == AESGCM_TAG or algo_tag_check == CHACHA_TAG:
+                # Jest to AES lub ChaCha. Klucz musi być Hex.
+                algo_tag = 'AESGCM' if algo_tag_check == AESGCM_TAG else 'CHACHA'
+                
+                try:
+                    # POPRAWKA: Klucz dla AES/ChaCha musi być zamieniony z Hex na Bajty
+                    key = bytes.fromhex(key_str)
+                except ValueError:
+                    self.log(f"BŁĄD: Klucz dla {algo_tag} musi być ciągiem szesnastkowym (Hex)!")
+                    messagebox.showerror("Błąd klucza", f"Klucz dla {algo_tag} musi być ciągiem szesnastkowym (Hex).")
+                    return
+                
+                # Wywołanie odpowiedniej funkcji odszyfrowania
+                if algo_tag == 'AESGCM':
+                    decrypted_data, rounds = self.decrypt_aes_gcm(encrypted_data, key)
+                else: # CHACHA
+                    decrypted_data, rounds = self.decrypt_chacha20_poly1305(encrypted_data, key)
+                
             else:
                 self.log(
                     f"BŁĄD: Nieznany lub uszkodzony plik. Nie rozpoznano znacznika algorytmu: {encrypted_data[:7]}")
