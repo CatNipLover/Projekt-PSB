@@ -21,15 +21,17 @@ except ImportError:
     SHA256 = None
 
 # Stałe
-KEY_SIZE = 32  # 256 bitów dla AES i ChaCha20
+# KEY_SIZE zostało usunięte, będzie dynamiczne
 SALT_SIZE = 16
 NONCE_SIZE = 12  # Dla GCM i ChaCha20
 TAG_SIZE = 16  # Dla GCM i Poly1305
 CHUNK_SIZE = 64 * 1024  # Blok do odczytu/zapisu dla dużych plików
 
-# Stały tag dla Fernet
+# Stały tag dla wszystkich algorytmów
 FERNET_TAG = b'FERNET'
-TAG_LEN = len(FERNET_TAG)  # 6 bajtów
+AESGCM_TAG = b'AESGCM'
+CHACHA_TAG = b'CHACHA'
+TAG_LEN = 6  # Wszystkie tagi mają teraz 6 bajtów
 
 
 class App(ctk.CTk):
@@ -37,7 +39,7 @@ class App(ctk.CTk):
         super().__init__()
 
         self.title("Szyfrator Wielu Algorytmów")
-        self.geometry("700x700")
+        self.geometry("700x600")  # Zmniejszono wysokość po usunięciu suwaka
         self.center_window()
 
         self.grid_columnconfigure(0, weight=1)
@@ -45,6 +47,15 @@ class App(ctk.CTk):
 
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
+
+        # --- NOWOŚĆ: Mapowanie nazw długości klucza na bajty ---
+        self.key_length_map = {
+            "128 bitów (16 bajtów)": 16,
+            "192 bity (24 bajty)": 24,
+            "256 bitów (32 bajty)": 32
+        }
+        self.aes_key_options = list(self.key_length_map.keys())
+        self.chacha_key_options = [self.aes_key_options[0], self.aes_key_options[2]]  # 128 i 256
 
         self.tab_view = ctk.CTkTabview(self, width=250)
         self.tab_view.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
@@ -59,6 +70,9 @@ class App(ctk.CTk):
         self.log_textbox = ctk.CTkTextbox(self, state="disabled", wrap="word")
         self.log_textbox.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
 
+        # Inicjalne wywołanie, aby ukryć pola klucza (bo domyślnie jest Fernet)
+        self.update_encryption_fields(self.algo_options[0])
+
     def setup_encrypt_tab(self):
         """Tworzy widżety dla zakladki szyfrowania."""
         self.tab_encrypt.grid_columnconfigure(1, weight=1)
@@ -67,7 +81,7 @@ class App(ctk.CTk):
         label_algo = ctk.CTkLabel(self.tab_encrypt, text="Wybierz Algorytm Szyfrowania:")
         label_algo.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
-        self.algo_options = ["Fernet (domyślny)", "AES-256 GCM", "ChaCha20-Poly1305"]
+        self.algo_options = ["Fernet (AES-128)", "AES-GCM", "ChaCha20-Poly1305"]
         self.algo_combobox = ctk.CTkComboBox(self.tab_encrypt, values=self.algo_options,
                                              command=self.update_encryption_fields)
         self.algo_combobox.set(self.algo_options[0])
@@ -82,19 +96,12 @@ class App(ctk.CTk):
                                              command=self.select_folder_and_encrypt)
         button_browse_folder.grid(row=1, column=1, columnspan=2, padx=10, pady=5, sticky="ew")
 
-        # interaktywny suwak 
-        label_strength = ctk.CTkLabel(self.tab_encrypt, text="Rundy Szyfrowania (tylko Fernet):")
-        label_strength.grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        # --- ZMIANA: Usunięto suwak rund, dodano wybór długości klucza ---
+        self.label_key_length = ctk.CTkLabel(self.tab_encrypt, text="Wybierz długość klucza:")
+        self.label_key_length.grid(row=2, column=0, padx=10, pady=5, sticky="w")
 
-        self.strength_slider = ctk.CTkSlider(self.tab_encrypt, from_=1, to=3, number_of_steps=2,
-                                             command=self.update_strength_label)
-        self.strength_slider.grid(row=2, column=1, padx=10, pady=5, sticky="ew")
-
-        self.strength_label_display = ctk.CTkLabel(self.tab_encrypt, text="", font=("Arial", 12, "bold"))
-        self.strength_label_display.grid(row=2, column=2, padx=10, pady=5, sticky="w")
-
-        self.strength_slider.set(1)
-        self.update_strength_label(1)
+        self.key_length_combobox = ctk.CTkComboBox(self.tab_encrypt, values=self.aes_key_options)
+        self.key_length_combobox.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="ew")
 
         # Pole na wygenerowany klucz
         self.key_entry_display = ctk.CTkEntry(self.tab_encrypt,
@@ -104,14 +111,27 @@ class App(ctk.CTk):
 
     def update_encryption_fields(self, choice):
         """Dostosowuje UI w zależności od wybranego algorytmu."""
-        is_fernet = choice == self.algo_options[0]
+        if choice == self.algo_options[0]:  # Fernet
+            # Ukryj wybór długości klucza
+            self.label_key_length.grid_remove()
+            self.key_length_combobox.grid_remove()
+            self.log("Wybrano Fernet. Używa stałego klucza AES-128 (256 bitów łącznie).")
 
-        self.strength_slider.configure(state="normal" if is_fernet else "disabled")
-        self.strength_label_display.configure(text_color="#2ECC71" if is_fernet else "#AAB7B8")
-        self.update_strength_label(self.strength_slider.get())
+        elif choice == self.algo_options[1]:  # AES-GCM
+            # Pokaż wybór długości klucza dla AES
+            self.label_key_length.grid()
+            self.key_length_combobox.grid()
+            self.key_length_combobox.configure(values=self.aes_key_options)
+            self.key_length_combobox.set(self.aes_key_options[2])  # Domyślnie 256 bit
+            self.log("Wybrano AES-GCM. Wybierz długość klucza.")
 
-        if not is_fernet:
-            self.log("Uwaga: Algorytmy AES-GCM i ChaCha20-Poly1305 używają 1 rundy i klucza 256-bitowego.")
+        elif choice == self.algo_options[2]:  # ChaCha20
+            # Pokaż wybór długości klucza dla ChaCha20
+            self.label_key_length.grid()
+            self.key_length_combobox.grid()
+            self.key_length_combobox.configure(values=self.chacha_key_options)
+            self.key_length_combobox.set(self.chacha_key_options[1])  # Domyślnie 256 bit
+            self.log("Wybrano ChaCha20-Poly1305. Wybierz długość klucza.")
 
     def setup_decrypt_tab(self):
         """Tworzy widżety dla zakladki odszyfrowywania."""
@@ -135,28 +155,7 @@ class App(ctk.CTk):
         button_decrypt = ctk.CTkButton(self.tab_decrypt, text="ODSZYFRUJ PLIK", command=self.run_decryption)
         button_decrypt.grid(row=2, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
 
-    # poziomy szyfrowania 
-    def update_strength_label(self, value):
-        """Aktualizuje etykietę siły szyfrowania na podstawie pozycji suwaka."""
-        value = int(value)
-        current_algo = self.algo_combobox.get()
-        is_fernet = current_algo == self.algo_options[0]
-
-        if is_fernet:
-            if value == 1:
-                text = "Poziom 1: Szybki (1 runda)"
-                color = "#2ECC71"
-            elif value == 2:
-                text = "Poziom 2: Bezpieczny (3 rundy)"
-                color = "#F39C12"
-            else:
-                text = "Poziom 3: Pancerny (5 rund)"
-                color = "#E74C3C"
-        else:
-            text = "Tryb Nierundowy (1 runda)"
-            color = "#AAB7B8"
-
-        self.strength_label_display.configure(text=text, text_color=color)
+    # --- USUNIĘTO update_strength_label ---
 
     def center_window(self):
         self.update_idletasks()
@@ -212,20 +211,19 @@ class App(ctk.CTk):
 
     # --- Funkcje Szyfrowania dla różnych Algorytmów ---
 
-    def encrypt_fernet(self, data, key, rounds):
-        """Szyfrowanie za pomocą Fernet (wielorundowe).
-        Format: Liczba_Rund (1 bajt) + FERNET_TAG (6 bajtów) + Szyfrogram
+    def encrypt_fernet(self, data, key):
+        """Szyfrowanie za pomocą standardowego Fernet.
+        Format: FERNET_TAG (6 bajtów) + Szyfrogram
         """
+        # USUNIĘTO parametr 'rounds' i logikę wielorundowości
         fernet = Fernet(key)
-        encrypted_data = data
-        for _ in range(rounds):
-            encrypted_data = fernet.encrypt(encrypted_data)
+        encrypted_data = fernet.encrypt(data)
 
-        # 1 bajt rundy + 6 bajtów tagu
-        return rounds.to_bytes(1, 'big') + FERNET_TAG + encrypted_data
+        # Zwraca tylko tag i zaszyfrowane dane
+        return FERNET_TAG + encrypted_data
 
     def encrypt_aes_gcm(self, data, key):
-        """Szyfrowanie za pomocą AES-256 GCM (jednorundowe).
+        """Szyfrowanie za pomocą AES-256 GCM.
         Format: AESGCM_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
         """
         if AES is None: raise RuntimeError("Brak biblioteki PyCryptodome")
@@ -234,10 +232,10 @@ class App(ctk.CTk):
         cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(data)
 
-        return b'AESGCM' + nonce + tag + ciphertext
+        return AESGCM_TAG + nonce + tag + ciphertext
 
     def encrypt_chacha20_poly1305(self, data, key):
-        """Szyfrowanie za pomocą ChaCha20-Poly1305 (jednorundowe).
+        """Szyfrowanie za pomocą ChaCha20-Poly1305.
         Format: CHACHA_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
         """
         if ChaCha20 is None: raise RuntimeError("Brak biblioteki PyCryptodome")
@@ -246,7 +244,7 @@ class App(ctk.CTk):
         cipher = ChaCha20.new(key=key, nonce=nonce)
         ciphertext, tag = cipher.encrypt_and_digest(data)
 
-        return b'CHACHA' + nonce + tag + ciphertext
+        return CHACHA_TAG + nonce + tag + ciphertext
 
     # --- Szyfrowanie Główne ---
     def run_encryption(self, folder_path):
@@ -255,21 +253,29 @@ class App(ctk.CTk):
             return
 
         selected_algo = self.algo_combobox.get()
-        rounds = 1
+        key_length_str = ""  # Do logowania
 
         if selected_algo == self.algo_options[0]:  # Fernet
-            rounds_map = {1: 1, 2: 3, 3: 5}
-            rounds = rounds_map[int(self.strength_slider.get())]
             key = Fernet.generate_key()
             key_str = key.decode('utf-8')
             algo_tag_display = "FERNET"
+            key_length_str = "128-bit (AES)"
         else:  # AES lub ChaCha20
+            # --- NOWA LOGIKA POBIERANIA DŁUGOŚCI KLUCZA ---
+            selected_key_length_name = self.key_length_combobox.get()
+            KEY_SIZE = self.key_length_map[selected_key_length_name]
+
             key = get_random_bytes(KEY_SIZE)
             key_str = key.hex()
-            algo_tag_display = selected_algo.split(' ')[0].strip()
+
+            key_length_str = selected_key_length_name
+            if selected_algo == self.algo_options[1]:
+                algo_tag_display = "AESGCM"
+            else:
+                algo_tag_display = "CHACHA"
 
         self.log(
-            f"\n--- Rozpoczynam szyfrowanie ({algo_tag_display}, {rounds} {'runda' if rounds == 1 else 'rund'}) ---")
+            f"\n--- Rozpoczynam szyfrowanie ({algo_tag_display}, Klucz: {key_length_str}) ---")
 
         self.key_entry_display.configure(state="normal")
         self.key_entry_display.delete(0, "end")
@@ -302,7 +308,7 @@ class App(ctk.CTk):
                     data = f_in.read()
 
                 if selected_algo == self.algo_options[0]:
-                    encrypted_data = self.encrypt_fernet(data, key, rounds)
+                    encrypted_data = self.encrypt_fernet(data, key)  # Usunięto 'rounds'
                 elif selected_algo == self.algo_options[1]:
                     encrypted_data = self.encrypt_aes_gcm(data, key)
                 elif selected_algo == self.algo_options[2]:
@@ -325,26 +331,27 @@ class App(ctk.CTk):
     # --- Funkcje Odszyfrowania dla różnych Algorytmów ---
 
     def decrypt_fernet(self, encrypted_data, key):
-        """Odszyfrowanie za pomocą Fernet (wielorundowe).
-        Format: Liczba_Rund (1 bajt) + FERNET_TAG (6 bajtów) + Szyfrogram
+        """Odszyfrowanie za pomocą standardowego Fernet.
+        Format: FERNET_TAG (6 bajtów) + Szyfrogram
         """
-        # Odczyt pierwszej rundy (1 bajt)
-        rounds = int.from_bytes(encrypted_data[:1], 'big')
+        # --- ZMIANA: Usunięto logikę czytania rund ---
 
-        # Odszyfrowywane dane zaczynają się PO 1 bajcie rundy i 6 bajtach tagu
-        data_to_decrypt = encrypted_data[1 + TAG_LEN:]
+        # Odszyfrowywane dane zaczynają się PO 6 bajtach tagu
+        data_to_decrypt = encrypted_data[TAG_LEN:]
 
         fernet = Fernet(key)
-        decrypted_data = data_to_decrypt
-        for _ in range(rounds):
-            decrypted_data = fernet.decrypt(decrypted_data)
-        return decrypted_data, rounds
+        decrypted_data = fernet.decrypt(data_to_decrypt)
+
+        # Zwracamy 1, aby funkcja wywołująca wiedziała, że to była 1 runda
+        return decrypted_data, 1
 
     def decrypt_aes_gcm(self, encrypted_data, key):
-        """Odszyfrowanie za pomocą AES-256 GCM (jednorundowe)."""
+        """Odszyfrowanie za pomocą AES-GCM.
+        Format: AESGCM_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
+        """
         if AES is None: raise RuntimeError("Brak biblioteki PyCryptodome")
 
-        # Tag jest zawsze 6 bajtów
+        # Dane zaczynają się po 6-bajtowym tagu
         nonce = encrypted_data[TAG_LEN: TAG_LEN + NONCE_SIZE]
         tag = encrypted_data[TAG_LEN + NONCE_SIZE: TAG_LEN + NONCE_SIZE + TAG_SIZE]
         ciphertext = encrypted_data[TAG_LEN + NONCE_SIZE + TAG_SIZE:]
@@ -354,10 +361,12 @@ class App(ctk.CTk):
         return data, 1
 
     def decrypt_chacha20_poly1305(self, encrypted_data, key):
-        """Odszyfrowanie za pomocą ChaCha20-Poly1305 (jednorundowe)."""
+        """Odszyfrowanie za pomocą ChaCha20-Poly1305.
+        Format: CHACHA_TAG (6 bajtów) + Nonce (12) + Tag (16) + Szyfrogram
+        """
         if ChaCha20 is None: raise RuntimeError("Brak biblioteki PyCryptodome")
 
-        # Tag jest zawsze 6 bajtów
+        # Dane zaczynają się po 6-bajtowym tagu
         nonce = encrypted_data[TAG_LEN: TAG_LEN + NONCE_SIZE]
         tag = encrypted_data[TAG_LEN + NONCE_SIZE: TAG_LEN + NONCE_SIZE + TAG_SIZE]
         ciphertext = encrypted_data[TAG_LEN + NONCE_SIZE + TAG_SIZE:]
@@ -385,35 +394,34 @@ class App(ctk.CTk):
             with open(file_path, "rb") as f_in:
                 encrypted_data = f_in.read()
 
-            if len(encrypted_data) < 1 + TAG_LEN:  # Minimalna dlugosc: 1 bajt rundy + 6 bajtów tagu
+            if len(encrypted_data) < TAG_LEN + 1:  # Minimalna dlugosc: 6 bajtów tagu + dane
                 raise ValueError("Plik jest za krótki/uszkodzony.")
 
             # 2. Identyfikacja algorytmu
 
-            # W pierwszej kolejności sprawdzamy FERNECIE (ma 1 bajt rundy + 6 bajtów tagu)
-            fernet_tag_check = encrypted_data[1: 1 + TAG_LEN]
-
-            # Sprawdzamy AES/CHACHA (ma 6 bajtów tagu od początku)
-            crypto_tag_check = encrypted_data[0: TAG_LEN]
+            # --- ZMIANA: Wszystkie tagi są na początku pliku ---
+            algo_tag_check = encrypted_data[0: TAG_LEN]
 
             algo_tag = None
             key = None
 
-            if fernet_tag_check == FERNET_TAG:
+            if algo_tag_check == FERNET_TAG:
                 # Jest to Fernet
                 algo_tag = 'FERNET'
                 key = key_str.encode('utf-8')
                 decrypted_data, rounds = self.decrypt_fernet(encrypted_data, key)
 
-            elif crypto_tag_check in (b'AESGCM', b'CHACHA'):
-                # Jest to AES lub ChaCha
-                algo_tag = crypto_tag_check.decode('utf-8')
+            elif algo_tag_check == AESGCM_TAG:
+                # Jest to AES
+                algo_tag = 'AESGCM'
                 key = bytes.fromhex(key_str)
+                decrypted_data, rounds = self.decrypt_aes_gcm(encrypted_data, key)
 
-                if algo_tag == 'AESGCM':
-                    decrypted_data, rounds = self.decrypt_aes_gcm(encrypted_data, key)
-                else:  # CHACHA
-                    decrypted_data, rounds = self.decrypt_chacha20_poly1305(encrypted_data, key)
+            elif algo_tag_check == CHACHA_TAG:
+                # Jest to ChaCha
+                algo_tag = 'CHACHA'
+                key = bytes.fromhex(key_str)
+                decrypted_data, rounds = self.decrypt_chacha20_poly1305(encrypted_data, key)
             else:
                 self.log(
                     f"BŁĄD: Nieznany lub uszkodzony plik. Nie rozpoznano znacznika algorytmu: {encrypted_data[:7]}")
@@ -422,7 +430,7 @@ class App(ctk.CTk):
                 return
 
             self.log(
-                f"Wykryto algorytm: {algo_tag}. Wykryto {rounds} {'rundę' if rounds == 1 else 'rund'} szyfrowania. Odszyfrowuję...")
+                f"Wykryto algorytm: {algo_tag}. Odszyfrowuję...")
 
             # 3. Zapisanie odszyfrowanych danych
             with open(file_path, "wb") as f_out:
