@@ -1,0 +1,19 @@
+FERNET_TAG = b'FERNET'
+AESGCM_TAG = b'AESGCM'
+CHACHA_TAG = b'CHACHA'
+TAG_LEN = 6
+
+NONCE_SIZE = 12
+TAG_SIZE = 16
+CHUNK_SIZE = 64 * 1024
+
+ALGO_OPTIONS = ["Fernet (AES-128)", "AES-GCM", "ChaCha20-Poly1305"]
+
+KEY_LENGTH_MAP = {
+    "128 bitów (16 bajtów)": 16,
+    "192 bity (24 bajty)": 24,
+    "256 bitów (32 bajty)": 32
+}
+
+AES_KEY_OPTIONS = list(KEY_LENGTH_MAP.keys())
+CHACHA_KEY_OPTIONS = [AES_KEY_OPTIONS[0], AES_KEY_OPTIONS[2]]
