@@ -1,4 +1,3 @@
-# main.py
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 import os
@@ -22,7 +21,6 @@ class App(ctk.CTk):
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
 
-        # Najpierw GUI – wszystko w setup_ui()
         self.setup_ui()
 
     def setup_ui(self):
@@ -33,15 +31,14 @@ class App(ctk.CTk):
         tab_encrypt = self.tab_view.add("Szyfrowanie")
         tab_decrypt = self.tab_view.add("Odszyfrowanie")
 
-        # --- SZYFROWANIE ---
         self.setup_encrypt_tab(tab_encrypt)
         self.setup_decrypt_tab(tab_decrypt)
 
-        # --- LOGI – TWORZONE PRZED update_encryption_fields! ---
+        # --- LOGI ---
         self.log_box = ctk.CTkTextbox(self, state="disabled", wrap="word")
         self.log_box.grid(row=1, column=0, padx=20, pady=(0, 20), sticky="nsew")
 
-        # --- Teraz bezpiecznie: ustawiamy domyślny algorytm ---
+        # Domyślny algorytm
         self.update_encryption_fields(ALGO_OPTIONS[0])
         self.log("Aplikacja gotowa. Wybierz folder lub plik.")
 
@@ -58,61 +55,62 @@ class App(ctk.CTk):
 
         # Folder
         ctk.CTkButton(parent, text="Wybierz folder i szyfruj...",
-                      command=self.select_folder_encrypt).grid(
-            row=1, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
+                      command=self.select_folder_encrypt, height=40).grid(
+            row=1, column=0, columnspan=3, padx=10, pady=15, sticky="ew")
 
-        # Długość klucza (ukryte na start)
-        self.key_length_label = ctk.CTkLabel(parent, text="Wybierz długość klucza:")
-        self.key_length_combo = ctk.CTkComboBox(parent, values=AES_KEY_OPTIONS)
+        # Długość klucza
+        self.key_length_label = ctk.CTkLabel(parent, text="Długość klucza:")
+        self.key_length_combo = ctk.CTkComboBox(parent, values=[])
 
-        # Klucz
-        self.key_display = ctk.CTkEntry(parent, state="readonly",
+        # Wyświetlanie klucza
+        self.key_display = ctk.CTkEntry(parent, state="readonly", font=("Consolas", 12),
                                         placeholder_text="Tutaj pojawi się wygenerowany klucz...")
-        self.key_display.grid(row=3, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+        self.key_display.grid(row=4, column=0, columnspan=3, padx=10, pady=12, sticky="ew")
 
     def setup_decrypt_tab(self, parent):
         parent.grid_columnconfigure(1, weight=1)
 
-        # Plik
         ctk.CTkLabel(parent, text="Wybierz plik do odszyfrowania:").grid(
             row=0, column=0, padx=10, pady=10, sticky="w")
-        self.file_entry = ctk.CTkEntry(parent, placeholder_text="Wybierz zaszyfrowany plik...")
+        self.file_entry = ctk.CTkEntry(parent, placeholder_text="Ścieżka do pliku...")
         self.file_entry.grid(row=0, column=1, padx=10, pady=10, sticky="ew")
         ctk.CTkButton(parent, text="Przeglądaj...", command=self.browse_file).grid(
             row=0, column=2, padx=10, pady=10)
 
-        # Klucz
         ctk.CTkLabel(parent, text="Wklej lub wczytaj klucz:").grid(
             row=1, column=0, padx=10, pady=10, sticky="w")
-        self.key_entry = ctk.CTkEntry(parent, placeholder_text="Wprowadź klucz...")
+        self.key_entry = ctk.CTkEntry(parent, placeholder_text="Klucz w formacie tekstowym...")
         self.key_entry.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
-        ctk.CTkButton(parent, text="Przeglądaj...", command=self.browse_key).grid(
+        ctk.CTkButton(parent, text="Wczytaj z pliku...", command=self.browse_key).grid(
             row=1, column=2, padx=10, pady=10)
 
-        # Przycisk
-        ctk.CTkButton(parent, text="ODSZYFRUJ PLIK", command=self.decrypt_file).grid(
-            row=2, column=0, columnspan=3, padx=10, pady=10, sticky="ew")
+        ctk.CTkButton(parent, text="ODSZYFRUJ PLIK", fg_color="green", hover_color="darkgreen",
+                      command=self.decrypt_file, height=40).grid(
+            row=2, column=0, columnspan=3, padx=10, pady=20, sticky="ew")
 
     def update_encryption_fields(self, choice):
-        if choice == ALGO_OPTIONS[0]:  # Fernet
+        allowed = ALLOWED_KEY_LENGTHS[choice]
+
+        if len(allowed) == 1:  # Fernet lub ChaCha20 → stała długość
             self.key_length_label.grid_remove()
             self.key_length_combo.grid_remove()
-            self.log("Wybrano Fernet (AES-128). Klucz jest generowany automatycznie.")
-        else:
-            self.key_length_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
-            self.key_length_combo.grid(row=2, column=1, columnspan=2, padx=10, pady=5, sticky="ew")
-            if choice == ALGO_OPTIONS[1]:  # AES-GCM
-                self.key_length_combo.configure(values=AES_KEY_OPTIONS)
-                self.key_length_combo.set(AES_KEY_OPTIONS[2])  # 256 domyślnie
-                self.log("Wybrano AES-GCM. Wybierz długość klucza.")
-            else:  # ChaCha20
-                self.key_length_combo.configure(values=CHACHA_KEY_OPTIONS)
-                self.key_length_combo.set(CHACHA_KEY_OPTIONS[1])  # 256 domyślnie
-                self.log("Wybrano ChaCha20-Poly1305. Wybierz długość klucza.")
+
+            if choice.startswith("Fernet"):
+                self.log("Fernet: klucz zawsze 256-bitowy (32 bajty) – wymagane przez standard.")
+            else:
+                self.log("ChaCha20-Poly1305: klucz zawsze 256-bitowy (32 bajty) – standard IETF/RFC 7539.")
+
+        else:  # AES-GCM → wybór
+            self.key_length_label.grid(row=2, column=0, padx=10, pady=8, sticky="w")
+            self.key_length_combo.grid(row=2, column=1, columnspan=2, padx=10, pady=8, sticky="ew")
+            self.key_length_combo.configure(values=allowed)
+            self.key_length_combo.set(allowed[-1])  # domyślnie najsilniejszy
+            self.log(f"AES-GCM wybrany. Dostępne długości: {', '.join(allowed)}")
 
     def log(self, msg):
         self.log_box.configure(state="normal")
-        self.log_box.insert("end", msg + "\n")
+        timestamp = time.strftime("%H:%M:%S")
+        self.log_box.insert("end", f"[{timestamp}] {msg}\n")
         self.log_box.configure(state="disabled")
         self.log_box.see("end")
 
@@ -125,41 +123,48 @@ class App(ctk.CTk):
     def encrypt_folder(self, folder_path):
         algo = self.algo_combo.get()
         folder_name = os.path.basename(os.path.normpath(folder_path))
-        algo_tag = {
-            "Fernet (AES-128)": "FERNET",
-            "AES-GCM": "AESGCM",
-            "ChaCha20-Poly1305": "CHACHA"
-        }[algo]
+        algo_tag = {"Fernet (AES-128)": "FERNET", "AES-GCM": "AESGCM", "ChaCha20-Poly1305": "CHACHA"}[algo]
 
         try:
-            if algo == ALGO_OPTIONS[0]:
+            allowed = ALLOWED_KEY_LENGTHS[algo]
+
+            # Generowanie klucza z walidacją
+            if algo == "Fernet (AES-128)":
                 key, key_str = generate_key(algo)
-            else:
+            elif algo == "ChaCha20-Poly1305":
+                key, key_str = generate_key(algo, "256 bitów (32 bajty)")
+            else:  # AES-GCM
                 key_length_name = self.key_length_combo.get()
+                if not key_length_name:
+                    messagebox.showerror("Błąd", "Wybierz długość klucza dla AES-GCM!")
+                    return
                 key, key_str = generate_key(algo, key_length_name)
 
-            # Pokaż klucz
+            # Pokazanie klucza
             self.key_display.configure(state="normal")
             self.key_display.delete(0, "end")
             self.key_display.insert(0, key_str)
             self.key_display.configure(state="readonly")
 
-            # Zapisz klucz
+            # Zapis klucza na pulpicie
             key_path = save_key_to_desktop(key_str, folder_name, algo_tag)
-            self.log(f"Klucz zapisany: {key_path}")
+            self.log(f"Klucz zapisany na pulpicie: {os.path.basename(key_path)}")
 
-            # Wybierz funkcję
+            # Wybór funkcji szyfrującej
             encrypt_func = {
-                ALGO_OPTIONS[0]: encrypt_fernet,
-                ALGO_OPTIONS[1]: encrypt_aes_gcm,
-                ALGO_OPTIONS[2]: encrypt_chacha20_poly1305
+                "Fernet (AES-128)": encrypt_fernet,
+                "AES-GCM": encrypt_aes_gcm,
+                "ChaCha20-Poly1305": encrypt_chacha20_poly1305
             }[algo]
 
-            # Pliki
-            files = [
-                os.path.join(folder_path, f) for f in os.listdir(folder_path)
-                if os.path.isfile(os.path.join(folder_path, f)) and f != os.path.basename(__file__)
-            ]
+            # Szyfrowanie plików
+            files = [os.path.join(folder_path, f) for f in os.listdir(folder_path)
+                     if os.path.isfile(os.path.join(folder_path, f)) and f != os.path.basename(__file__)]
+
+            if not files:
+                self.log("Folder jest pusty lub zawiera tylko podfoldery.")
+                messagebox.showwarning("Uwaga", "Nie znaleziono plików do zaszyfrowania!")
+                return
 
             start = time.time()
             for file_path in files:
@@ -171,13 +176,14 @@ class App(ctk.CTk):
                         f.write(encrypted)
                     self.log(f"Zaszyfrowano: {os.path.basename(file_path)}")
                 except Exception as e:
-                    self.log(f"BŁĄD ({os.path.basename(file_path)}): {e}")
+                    self.log(f"BŁĄD przy {os.path.basename(file_path)}: {e}")
 
-            self.log(f"--- Szyfrowanie zakończone w {time.time() - start:.2f}s ---")
-            messagebox.showinfo("Sukces", f"Zaszyfrowano {len(files)} plików!\nKlucz na pulpicie.")
+            elapsed = time.time() - start
+            self.log(f"--- SZYFROWANIE ZAKOŃCZONE w {elapsed:.2f}s | Plików: {len(files)} ---")
+            messagebox.showinfo("Sukces!", f"Zaszyfrowano {len(files)} plików!\n\nKlucz zapisano na pulpicie:\n{os.path.basename(key_path)}")
 
         except Exception as e:
-            self.log(f"BŁĄD: {e}")
+            self.log(f"KRYTYCZNY BŁĄD: {e}")
             messagebox.showerror("Błąd", str(e))
 
     def browse_file(self):
@@ -185,7 +191,7 @@ class App(ctk.CTk):
         if path:
             self.file_entry.delete(0, "end")
             self.file_entry.insert(0, path)
-            self.log(f"Wybrano plik: {path}")
+            self.log(f"Wybrano plik: {os.path.basename(path)}")
 
     def browse_key(self):
         path = filedialog.askopenfilename(
@@ -198,9 +204,9 @@ class App(ctk.CTk):
                     key = f.read().strip()
                 self.key_entry.delete(0, "end")
                 self.key_entry.insert(0, key)
-                self.log(f"Wczytano klucz z: {path}")
+                self.log(f"Wczytano klucz z pliku")
             except Exception as e:
-                self.log(f"Nie wczytano klucza: {e}")
+                self.log(f"Nie udało się wczytać klucza: {e}")
 
     def decrypt_file(self):
         file_path = self.file_entry.get().strip()
@@ -219,22 +225,22 @@ class App(ctk.CTk):
             with open(file_path, "rb") as f:
                 data = f.read()
 
-            if len(data) < 6:
-                raise ValueError("Plik za krótki – nie jest zaszyfrowany przez ten program.")
+            if len(data) < TAG_LEN:
+                raise ValueError("Plik za krótki – nie został zaszyfrowany tym programem.")
 
             decrypted, algo_name = decrypt_auto(data, key_str)
 
             with open(file_path, "wb") as f:
                 f.write(decrypted)
 
-            self.log(f"ODSZYFROWANO ({algo_name})")
-            messagebox.showinfo("Sukces", f"Plik odszyfrowany!\nAlgorytm: {algo_name}")
+            self.log(f"ODSZYFROWANO pomyślnie ({algo_name})")
+            messagebox.showinfo("Sukces", f"Plik został odszyfrowany!\nUżyto algorytmu: {algo_name}")
 
         except InvalidToken:
-            self.log("BŁĄD: Nieprawidłowy klucz!")
-            messagebox.showerror("Błąd", "Nieprawidłowy klucz lub plik uszkodzony!")
+            self.log("BŁĄD: Nieprawidłowy klucz lub uszkodzony plik!")
+            messagebox.showerror("Błąd", "Nieprawidłowy klucz lub plik jest uszkodzony!")
         except Exception as e:
-            self.log(f"Błąd: {e}")
+            self.log(f"Błąd odszyfrowania: {e}")
             messagebox.showerror("Błąd", str(e))
 
 

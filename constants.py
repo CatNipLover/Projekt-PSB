@@ -9,11 +9,14 @@ CHUNK_SIZE = 64 * 1024
 
 ALGO_OPTIONS = ["Fernet (AES-128)", "AES-GCM", "ChaCha20-Poly1305"]
 
-KEY_LENGTH_MAP = {
-    "128 bitów (16 bajtów)": 16,
-    "192 bity (24 bajty)": 24,
-    "256 bitów (32 bajty)": 32
+ALLOWED_KEY_LENGTHS = {
+    "Fernet (AES-128)":        ["256 bitów (32 bajty)"],
+    "AES-GCM":                 ["128 bitów (16 bajtów)", "192 bity (24 bajty)", "256 bitów (32 bajty)"],
+    "ChaCha20-Poly1305":       ["256 bitów (32 bajty)"]
 }
 
-AES_KEY_OPTIONS = list(KEY_LENGTH_MAP.keys())
-CHACHA_KEY_OPTIONS = [AES_KEY_OPTIONS[0], AES_KEY_OPTIONS[2]]
+KEY_LENGTH_MAP = {
+    "128 bitów (16 bajtów)": 16,
+    "192 bity (24 bajty)":   24,
+    "256 bitów (32 bajty)":  32
+}
