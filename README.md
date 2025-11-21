@@ -1,60 +1,99 @@
 # 🔐 Symulator ataku ransomware
 
-## 🎓 Projekt na zaliczenie przedmiotu projektowanie systemów bezpieczeństwa
+## 🎓 Projekt na zaliczenie przedmiotu *Projektowanie systemów bezpieczeństwa*
 
-**Autorzy:** *Maciej Gilecki, Paweł Górski, Matuesz Gałda*  
+**Autorzy:** Maciej Gilecki, Paweł Górski, Mateusz Gałda  
 **Kierunek:** Inżynieria i analiza danych  
-**Przedmiot:** Projektowanie systemów bezpieczeństwa  
-**Prowadzący:** *dr inż. Mariusz Nycz*  
+**Prowadzący:** dr inż. Mariusz Nycz  
 
 ---
 
 ## 📘 Opis projektu
 
-Celem projektu było przeprowadzenie symulacja ataku ransomware w celu zrozumienia zagrożeń, mechanizmów szyfrujących i reakcji obronnych (np. backupów)
-Program został napisany w języku **Python** z wykorzystaniem bibliotek:
+Celem projektu jest stworzenie aplikacji edukacyjnej, która w bezpieczny i kontrolowany sposób symuluje działanie ataku ransomware. Program umożliwia:
 
-- `customtkinter` – do stworzenia nowoczesnego interfejsu graficznego (GUI),
-- `cryptography` (moduł `Fernet`) – do bezpiecznego szyfrowania danych.
+- szyfrowanie plików w wybranym folderze,
+- testowanie trzech różnych algorytmów szyfrowania,
+- generowanie klucza szyfrującego i zapisywanie go na pulpicie,
+- odszyfrowywanie zaszyfrowanych plików,
+- poznanie mechanizmów typowych dla działania ransomware.
 
-Aplikacja umożliwia użytkownikowi wybór folderu do symulacji ataku (szyfrowania plików), ustalenie poziomu szyfrowania, a następnie automatyczne zapisanie klucza szyfrującego na pulpicie. W kolejnej zakładce można odszyfrować wybrane pliki za pomocą zapisanego klucza.
+Aplikacja korzysta z języka **Python** oraz nowoczesnego interfejsu graficznego opartego o `customtkinter`.
 
 ---
 
 ## 🧩 Funkcjonalności
 
-✅ Szyfrowanie plików w wybranym folderze  
-✅ Wybór poziomu zabezpieczeń:
-- Poziom 1 – **Szybki (1 runda)**
-- Poziom 2 – **Bezpieczny (3 rundy)**
-- Poziom 3 – **Pancerny (5 rund)**
+### 🔒 Szyfrowanie
 
-✅ Automatyczne generowanie i zapisywanie klucza szyfrującego (`.txt`)  
-✅ Odszyfrowywanie plików przy użyciu zapisanego klucza  
-✅ Wbudowana **konsola logów** z informacjami o przebiegu operacji  
-✅ Intuicyjny interfejs graficzny oparty na kartach (*Szyfrowanie / Odszyfrowanie*)
+- Szyfrowanie wszystkich plików w wybranym folderze  
+- Obsługa trzech algorytmów:
+  - **Fernet (AES-128)**
+  - **AES-GCM**
+  - **ChaCha20-Poly1305**
+- Do każdego pliku dodawany jest tag algorytmu, dzięki czemu możliwe jest automatyczne rozpoznanie metody przy odszyfrowaniu.
+
+### 🔑 Klucze szyfrujące
+
+- Automatyczne generowanie poprawnych kluczy zgodnych z wybranym algorytmem
+- Zapis klucza szyfrującego na pulpicie użytkownika
+
+### 🔓 Odszyfrowywanie
+
+- Automatyczna detekcja użytego algorytmu szyfrowania na podstawie tagu (`decrypt_auto`)
+- Wsparcie dla wszystkich trzech algorytmów szyfrowania
+
+### 🖥️ Interfejs graficzny
+
+- Nowoczesny interfejs oparty o `customtkinter`
+- Dwie zakładki: **Szyfrowanie** oraz **Odszyfrowanie**
+- Wbudowana konsola logów prezentująca przebieg operacji
+
+---
+
+## 🔧 Obsługiwane algorytmy szyfrowania
+
+| Algorytm                  | Możliwe długości kluczy |
+|---------------------------|--------------------------|
+| **Fernet (AES-128)**     | 256 bit (32 bajty)       |
+| **AES-GCM**              | 128 / 192 / 256 bit      |
+| **ChaCha20-Poly1305**    | 256 bit (32 bajty)       |
+
+Każdy plik zaszyfrowany algorytmem AES-GCM lub ChaCha20-Poly1305 zawiera:
+
+- 6 bajtów tagu algorytmu  
+- 12 bajtów nonce  
+- 16 bajtów tagu integralności  
+- ciphertext  
 
 ---
 
 ## ⚙️ Technologie
 
-|     Biblioteki     |                Zastosowanie                  |
-|--------------------|----------------------------------------------|
-| **Python 3.8+** | Główny język programowania                      |
-| **customtkinter** | Tworzenie nowoczesnego interfejsu graficznego |
-| **cryptography** | Algorytmy szyfrowania symetrycznego (Fernet)   |
-| **tkinter** | Obsługa okien dialogowych i komunikatów             |
-| **os, time** | Operacje systemowe i pomiar czasu                  |
+| Biblioteka               | Zastosowanie |
+|--------------------------|--------------|
+| **Python 3.8+**          | Główny język programu |
+| **customtkinter**        | Interfejs graficzny |
+| **tkinter**              | Okna dialogowe |
+| **cryptography (Fernet)**| Szyfrowanie AES-128 |
+| **PyCryptodome**         | Implementacja AES-GCM i ChaCha20 |
+| **os, time**             | Operacje systemowe i pomiar czasu |
 
 ---
 
 ## 🖥️ Wymagania systemowe
 
-- Python 3.8 lub nowszy  
-- System: Windows / macOS / Linux  
-- Zainstalowane biblioteki:
+- Python **3.8 lub nowszy**
+- System: Windows / macOS / Linux
+- Wymagane biblioteki:
 
-- Instalacja wymagancyh bibliotek
 ```bash
-pip install customtkinter cryptography
+pip install customtkinter cryptography pycryptodome
 ```
+
+## ⚠️ Informacje bezpieczeństwa
+
+- Program jest **wyłącznie symulatorem edukacyjnym**.  
+- Nie powinien być używany do jakichkolwiek nielegalnych celów.  
+- Szyfruje tylko pliki w folderze **wybranym przez użytkownika**.  
+- Zaleca się wykonywanie operacji na **kopiach zapasowych danych**.
