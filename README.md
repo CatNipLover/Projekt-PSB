@@ -1,11 +1,11 @@
 # 🔐 Symulator ataku ransomware
 
-** ❗ PROJEKT WYŁĄCZNIE EDUKACYJNY ❗ **  
+❗ PROJEKT WYŁĄCZNIE EDUKACYJNY ❗  
 Ten projekt został stworzony **jedynie na potrzeby zaliczenia przedmiotu**  
 *Projektowanie systemów bezpieczeństwa* na studiach.  
 **Kod nie może być wykorzystywany w celach komercyjnych, produkcyjnych ani do żadnych działań niezgodnych z prawem.**
 
-** 📄 Licencja: MIT**  
+📄 Licencja: MIT  
 Możesz czytać, uruchamiać i uczyć się na tym kodzie – wystarczy zachować informacje o autorach i licencji (szczegóły w pliku `LICENSE`).
 
 ## 🎓 Projekt na zaliczenie przedmiotu *Projektowanie systemów bezpieczeństwa*
