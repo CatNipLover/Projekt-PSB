@@ -1,5 +1,5 @@
 from cryptography.fernet import Fernet, InvalidToken
-from Crypto.Cipher import AES, ChaCha20
+from Crypto.Cipher import AES, ChaCha20_Poly1305
 from Crypto.Random import get_random_bytes
 from constants import *
 import os
@@ -36,7 +36,7 @@ def encrypt_aes_gcm(data: bytes, key: bytes) -> bytes:
 
 def encrypt_chacha20_poly1305(data: bytes, key: bytes) -> bytes:
     nonce = get_random_bytes(NONCE_SIZE)
-    cipher = ChaCha20.new(key=key, nonce=nonce)
+    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
     ciphertext, tag = cipher.encrypt_and_digest(data)
     return CHACHA_TAG + nonce + tag + ciphertext
 
@@ -57,7 +57,7 @@ def decrypt_chacha20_poly1305(encrypted_data: bytes, key: bytes) -> bytes:
     nonce = encrypted_data[TAG_LEN: TAG_LEN + NONCE_SIZE]
     tag = encrypted_data[TAG_LEN + NONCE_SIZE: TAG_LEN + NONCE_SIZE + TAG_SIZE]
     ciphertext = encrypted_data[TAG_LEN + NONCE_SIZE + TAG_SIZE:]
-    cipher = ChaCha20.new(key=key, nonce=nonce)
+    cipher = ChaCha20_Poly1305.new(key=key, nonce=nonce)
     return cipher.decrypt_and_verify(ciphertext, tag)
 
 # --- AUTOMATYCZNE ODSZYFROWANIE PO TAGU ---
